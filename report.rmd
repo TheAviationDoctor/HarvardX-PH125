@@ -1,0 +1,12 @@
+---
+title: "MovieLens Project Report"
+author: "Thomas D. Pellegrin"
+date: "October 1, 2023"
+output: pdf_document
+---
+
+# Abstract
+
+We report the methodology and results from the Capstone module of the HarvardX PH125.9 "Data Science" course available on edx.org.
+
+A dataset named _edx_ was generated according to course instructions. It comprises approximately 9.10^3 observations, each corresponding to a user-assigned rating of a movie.

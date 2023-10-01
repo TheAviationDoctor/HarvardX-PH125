@@ -1,6 +1,6 @@
 # Data files
-.dat
-.zip
+*.dat
+*.zip
 
 # History files
 .Rhistory
