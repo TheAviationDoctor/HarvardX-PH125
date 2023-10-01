@@ -253,7 +253,7 @@ df %>%
 # Maybe do a Pareto here?
 
 # ==============================================================================
-# 2.4 Rating score per movie
+# 2.4 Ratings score per movie
 # ==============================================================================
 
 # Highest-rated movies (top n)
@@ -300,7 +300,7 @@ df %>%
   theme_light()
 
 # ==============================================================================
-# 2.5 Rating by year of movie release
+# 2.5 Ratings by year of movie release
 # ==============================================================================
 
 # Ratings by year of movie release (table)
@@ -308,11 +308,12 @@ df %>%
 # Median rating is 4.0 for pre-1977 movies, and 3.5 for post-1977 movies
 # Is there some nostalgia at play, whereby older movies are given more leeway?
 # Or are older movies objectively better than more modern ones?df %>%
+df %>%
   group_by(year_movie) %>%
   summarize(
-    mean   = mean(rating),
-    median = median(rating),
-    n_rating = n()
+    mean_rating   = mean(rating),
+    median_rating = median(rating),
+    n_rating      = n()
   )
 
 # Ratings by year of movie release (plot)
@@ -336,7 +337,7 @@ df %>%
   ylab("Ratings")
 
 # ==============================================================================
-# 2.6 Rating by year of movie release
+# 2.6 Ratings by year of movie release
 # ==============================================================================
 
 # Ratings by year of rating (table)
@@ -370,7 +371,7 @@ df %>%
   ylab("Ratings")
 
 # ==============================================================================
-# 2.7 Rating by years of distance between movie release and rating
+# 2.7 Ratings by years of distance between movie release and rating
 # ==============================================================================
 
 # Ratings by years of distance between movie release and rating (table)
@@ -404,7 +405,7 @@ df %>%
   ylab("Ratings")
 
 # ==============================================================================
-# 2.8 Rating by genre
+# 2.8 Ratings by genre
 # ==============================================================================
 
 # Ratings by genre
@@ -422,8 +423,47 @@ df %>%
   arrange(desc(mean))
 
 # ==============================================================================
+# 2.9 Ratings by reviewer
+# ==============================================================================
+
+# Ratings by reviewer (table)
+# We find that the more ratings a reviewer has given, the less spread out
+df %>%
+  group_by(userId) %>%
+  summarize(
+    mean_rating   = mean(rating),
+    median_rating = median(rating),
+    n_rating      = n()
+  )
+
+# Ratings by reviewer (plot)
+df %>%
+  group_by(userId) %>%
+  summarize(
+    mean_rating   = mean(rating),
+    median_rating = median(rating),
+    n_rating      = n()
+  ) %>%
+  ggplot(mapping = aes(x = n_rating, y = mean_rating)) +
+  geom_point() +
+  theme_light()
+
+# ==============================================================================
 # 3 Predictions
 # ==============================================================================
+
+# ==============================================================================
+# 3.1 Basic prediction
+# This just takes the mean of all ratings without accounting for any correlation
+# ==============================================================================
+
+# Calculate the root mean square error of predicting ratings with just the mean
+# We use the standard RMSE function from the caret package
+# RMSE = 1.0612018
+RMSE(mean(df$rating), final_holdout_test$rating)
+
+
+
 
 # ==============================================================================
 # X Housekeeping
