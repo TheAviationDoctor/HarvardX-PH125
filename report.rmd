@@ -7,6 +7,27 @@ output: pdf_document
 
 # Abstract
 
-We report the methodology and results from the Capstone module of the HarvardX PH125.9 "Data Science" course available on edx.org.
+We report the methods and results from the Capstone module of the HarvardX PH125.9 "Data Science" course from edx.org. A machine learning algorithm was developed using the R statistical computing environment to predict user ratings of movies against an archival dataset of historical ratings. The resulting root mean square error (RMSE) is...
 
-A dataset named _edx_ was generated according to course instructions. It comprises approximately 9.10^3 observations, each corresponding to a user-assigned rating of a movie.
+# Introduction
+
+The final module of the HarvardX PH125.9 "Data Science" course from edx.org requires students to independently develop and submit a capstone project. The project's goal is to develop a machine learning algorithm that can predict movie ratings with an RMSE lower than 0.8649.
+
+```
+RMSE(final_holdout_test$rating, edx$rating)
+```
+
+
+# Methods
+
+## Data preparation
+
+The _edx_ dataset was generated using R code provided in the course instructions.
+
+## Exploratory analysis
+
+We start with an exploration of the _edx_ dataset, in which each row consists of a rating assigned by a user to a movie. The data comprises approximately 9.10^6 observations of n variables.
+
+# Results
+
+# Conclusion

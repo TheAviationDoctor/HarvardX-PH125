@@ -27,12 +27,10 @@ install_if_not_available <- function(package_name, repo = repo) {
 
 # Call the function for the required packages
 install_if_not_available("caret")
-install_if_not_available("markdown")
 install_if_not_available("tidyverse")
 
 # Load the required libraries
 library(caret)
-library(markdown)
 library(tidyverse)
 
 # Set a 2-minute timeout for attempting to download datasets
