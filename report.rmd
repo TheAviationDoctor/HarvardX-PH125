@@ -5,6 +5,25 @@ date: "October 1, 2023"
 output: pdf_document
 ---
 
+```{r, label = "setup", include = FALSE}
+
+# Load the required libraries
+library(caret)
+library(dplyr)
+library(knitr)
+# library(formatR)
+library(readr)
+library(stringr)
+
+# Set options
+options(timeout = 120)
+# opts_chunk$set(tidy.opts = list(width.cutoff = 80), tidy = TRUE)
+
+# Start a script timer
+start_time <- Sys.time()
+
+```
+
 # Abstract
 
 We report the methods and results from the Capstone module of the HarvardX PH125.9 "Data Science" course from edx.org. A machine learning algorithm was developed using the R statistical computing environment to predict user ratings of movies against an archival dataset of historical ratings. The resulting root mean square error (RMSE) is...
@@ -13,20 +32,159 @@ We report the methods and results from the Capstone module of the HarvardX PH125
 
 The final module of the HarvardX PH125.9 "Data Science" course from edx.org requires students to independently develop and submit a capstone project. The project's goal is to develop a machine learning algorithm that can predict movie ratings with an RMSE lower than 0.8649.
 
-```
-RMSE(final_holdout_test$rating, edx$rating)
-```
-
-
 # Methods
 
 ## Data preparation
 
-The _edx_ dataset was generated using R code provided in the course instructions.
+The *edx* dataset was generated using R code adapted from the course instructions. First, the dataset was downloaded from the *grouplens.org* website as a 65.6 MB zipped file.
+
+```{r, label = "dowload_data", echo = TRUE, results = "hide"}
+
+dl <- "ml-10M100K.zip"
+if(!file.exists(dl)) {
+  download.file("https://files.grouplens.org/datasets/movielens/ml-10m.zip", dl)
+}
+
+```
+
+Next, the *ratings* and *movies* data were extracted from the zipped file and their respective data frames joined into one *movieLens* data frame.
+
+```{r, label = "extract_data", echo = TRUE, results = "hide"}
+
+movielens <- left_join(
+  
+  ratings <- read.table(
+    text = gsub(
+      x           = readLines(con = unzip(dl, "ml-10M100K/ratings.dat")),
+      pattern     = "::",
+      replacement = ";",
+      fixed       = TRUE
+    ),
+    sep        = ";",
+    col.names  = c("userId", "movieId", "rating", "timestamp"),
+    colClasses = c("integer", "integer", "numeric", "integer")
+  ),
+  
+  movies <- read.table(
+    text = gsub(
+      x           = readLines(con = unzip(dl, "ml-10M100K/movies.dat")),
+      pattern     = "::",
+      replacement = ";",
+      fixed       = TRUE
+    ),
+    sep        = ";",
+    col.names  = c("movieId", "title", "genres"),
+    colClasses = c("integer", "character", "character")
+  ),
+  
+  by = "movieId"
+)
+
+```
+
+Then, the dataset was partitioned into a training set (*edx*) and a test set (*final_holdout_test*). The training set was used to develop the machine learning algorithm. The test set was used to evaluate the algorithm's performance against the course's grading rubric.
+
+```{r, label = "partition_data", echo = TRUE, results = "hide"}
+
+# Set a seed for reproducibility
+set.seed(1, sample.kind = "Rounding") # if using R 3.6 or later
+
+# Partition the data. Final hold-out test set will be 10% of MovieLens data
+test_index <- createDataPartition(
+  y     = movielens$rating,
+  times = 1,
+  p     = 0.1,
+  list  = FALSE
+)
+
+# Separate the test set from the edx dataset
+edx <- movielens[-test_index,]
+temp <- movielens[test_index,]
+
+# Make sure userId and movieId in final hold-out test set are also in edx set
+final_holdout_test <- temp %>%
+  semi_join(edx, by = "movieId") %>%
+  semi_join(edx, by = "userId")
+
+# Add rows removed from final hold-out test set back into edx set
+removed <- anti_join(temp, final_holdout_test)
+edx <- rbind(edx, removed)
+
+# Remove unnecessary objects from memory
+rm(dl, ratings, movies, test_index, temp, movielens, removed)
+
+```
 
 ## Exploratory analysis
 
-We start with an exploration of the _edx_ dataset, in which each row consists of a rating assigned by a user to a movie. The data comprises approximately 9.10^6 observations of n variables.
+Next, the *edx* dataset was described. The data consist of individual ratings assigned by a user to a movie. There are approximately 9.10\^6 observations of 6 variables, which are the unique sequential IDs of the user and movie, the rating given to the movie (on a scale of 0.0 to 5.0 in 0.5 increments), a Unix timestamp of the review, the title of the movie including its year of release between brackets, and one or more cinematographic genres associated with the movie separated by a delimiter character.
+
+```{r, label = "describe_data", echo = TRUE}
+
+str(edx)
+
+```
+
+From this description, six hypotheses were formed about the factors that might influence movie ratings:
+
+1. How old the movie is, as measured by its year of release (i.e., older movies might be rated differently than newer ones);
+2. How old the rating is, as measured by its year of assignment (i.e., older ratings might be different than newer ones);
+3. How much time passed between the release of the movie and the rating, as measured by the difference between the years of both (i.e., ratings assigned closer in time to the movie release might be different than those assigned further in time);
+4. The genre of the movie (i.e., movies of different genres might be rated differently);
+5. The user who assigned the rating (i.e., users might have different rating habits);
+6. The movie itself (i.e., individual movies might be rated differently).
+
+To test these hypotheses, the *edx* dataset was transformed using the following R code. The *timestamp* variable was converted to a human-readable date. The *year_movie* variable was extracted from the movie title, and the latter was shortened correspondingly. The *year_dist* variable was created by calculating the absolute difference between the years of the movie release and of the rating.
+
+```{r, label = "transform_data", echo = TRUE}
+
+edx <- edx %>%
+    mutate(
+      year_movie  = as.integer(str_sub(title, start = -5L, end = -2L)),
+      year_rating = as.integer(as.POSIXlt(timestamp, origin = "1970-01-01")$year + 1900L),
+      year_dist   = as.integer(abs(year_movie - year_rating)),
+      title       = str_sub(title, end = -8L),
+      timestamp   = NULL
+    )
+
+```
+
+Each of these six hypotheses was then tested against the *edx* dataset.
+
+### Ratings by year of movie release
+
+```{r, label = "ratings_by_year_movie", echo = TRUE}
+
+# Table
+edx %>%
+  group_by(year_movie) %>%
+  summarize(
+    mean_rating   = mean(rating),
+    median_rating = median(rating),
+    n_rating      = n()
+  )
+
+# Plot
+edx %>%
+  group_by(year_movie) %>%
+  summarize(
+    mean   = mean(rating),
+    median = median(rating),
+    low    = quantile(rating, .25), # 25th percentile of the ratings for that year
+    high   = quantile(rating, .75)  # 75th percentile of the ratings for that year
+  ) %>%
+  ggplot(aes(x = year_movie)) +
+  geom_ribbon(
+    mapping = aes(y = mean, ymin = low, ymax = high),
+    fill    = "grey70"
+  ) +
+  geom_line(mapping = aes(y = mean)) +
+  geom_point(mapping = aes(y = median)) +
+  theme_light() +
+  xlab("Year of movie release") +
+  ylab("Ratings")
+
+```
 
 # Results
 

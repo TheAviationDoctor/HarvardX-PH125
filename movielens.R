@@ -12,35 +12,18 @@
 # 0 Housekeeping
 # ==============================================================================
 
-# Clear the environment
-# rm(list = ls())
-
-# Install the required libraries if they are missing
-repo <- "http://cran.us.r-project.org"
-
-# Define a function to check and install packages if not available
-install_if_not_available <- function(package_name, repo = repo) {
-  if (!requireNamespace(package_name, quietly = TRUE)) {
-    install.packages(package_name, repos = repo, dependencies = TRUE)
-  }
-}
-
-# Call the function for the required packages
-install_if_not_available("caret")
-install_if_not_available("tidyverse")
-
 # Load the required libraries
 library(caret)
-library(tidyverse)
+library(dplyr)
+library(knitr)
+library(readr)
+library(stringr)
 
-# Set a 2-minute timeout for attempting to download datasets
-options(timeout = 120L)
+# Set options
+options(timeout = 120)
 
 # Start a script timer
 start_time <- Sys.time()
-
-# Clear the console
-cat("\014")
 
 # ==============================================================================
 # 1 Prepare the data
@@ -50,90 +33,80 @@ cat("\014")
 # 1.1 Create the edx dataset if necessary (adapted from course-provided code)
 # ==============================================================================
 
-# Run only if the edx dataset is not yet loaded into the R environment
-if(!exists("edx")) {
-  
-  # Download the zipped MovieLens dataset (had to downgrade to HTTP to make it work on Windows)
-  dl <- "ml-10M100K.zip"
-  if(!file.exists(dl)) { download.file("http://files.grouplens.org/datasets/movielens/ml-10m.zip", dl) }
-  
-  # Create the data folder if missing (necessary on Windows)
-  dir.create("ml-10M100K", showWarnings = FALSE)
-  
-  # Unzip the ratings file
-  ratings_file <- "ml-10M100K/ratings.dat"
-  if(!file.exists(ratings_file)) { unzip(dl, ratings_file) }
-  
-  # Unzip the movies file
-  movies_file <- "ml-10M100K/movies.dat"
-  if(!file.exists(movies_file)) { unzip(dl, movies_file) }
-  
-  # Load ratings into a data frame
-  ratings <- as.data.frame(
-    str_split(read_lines(ratings_file), fixed("::"), simplify = TRUE),
-    stringsAsFactors = FALSE
-  )
-  
-  # Set the ratings column names
-  colnames(ratings) <- c("userId", "movieId", "rating", "timestamp")
-  
-  # Change ratings column types
-  ratings <- ratings %>%
-    mutate(
-      userId = as.integer(userId),
-      movieId = as.integer(movieId),
-      rating = as.numeric(rating),
-      timestamp = as.integer(timestamp)
-    )
-  
-  # Load movies into a data frame
-  movies <- as.data.frame(
-    str_split(read_lines(movies_file), fixed("::"), simplify = TRUE),
-    stringsAsFactors = FALSE
-  )
-  
-  # Set the movies column names
-  colnames(movies) <- c("movieId", "title", "genres")
-  
-  # Change movies column types
-  movies <- movies %>%
-    mutate(movieId = as.integer(movieId))
-  
-  # Join the movies and ratings datasets
-  movielens <- left_join(ratings, movies, by = "movieId")
-  
-  # Set a seed for reproducibility
-  set.seed(1, sample.kind = "Rounding") # if using R 3.6 or later
-  
-  # Partition the data. Final hold-out test set will be 10% of MovieLens data
-  test_index <- createDataPartition(y = movielens$rating, times = 1, p = 0.1, list = FALSE)
-  
-  # Separate the test set from the edx dataset
-  edx <- movielens[-test_index,]
-  temp <- movielens[test_index,]
-  
-  # Make sure userId and movieId in final hold-out test set are also in edx set
-  final_holdout_test <- temp %>% 
-    semi_join(edx, by = "movieId") %>%
-    semi_join(edx, by = "userId")
-  
-  # Add rows removed from final hold-out test set back into edx set
-  removed <- anti_join(temp, final_holdout_test)
-  edx <- rbind(edx, removed)
-  
-  # Remove unnecessary objects from memory
-  rm(dl, ratings, movies, test_index, temp, movielens, removed)
-  
+# Download the data
+dl <- "ml-10M100K.zip"
+if(!file.exists(dl)) {
+  download.file("https://files.grouplens.org/datasets/movielens/ml-10m.zip", dl)
 }
 
+# Extract and join the ratings and movies
+movielens <- left_join(
+  
+  ratings <- read.table(
+    text = gsub(
+      x           = readLines(con = unzip(dl, "ml-10M100K/ratings.dat")),
+      pattern     = "::",
+      replacement = ";",
+      fixed       = TRUE
+    ),
+    sep        = ";",
+    col.names  = c("userId", "movieId", "rating", "timestamp"),
+    colClasses = c("integer", "integer", "numeric", "integer")
+  ),
+  
+  movies <- read.table(
+    text = gsub(
+      x           = readLines(con = unzip(dl, "ml-10M100K/movies.dat")),
+      pattern     = "::",
+      replacement = ";",
+      fixed       = TRUE
+    ),
+    sep        = ";",
+    col.names  = c("movieId", "title", "genres"),
+    colClasses = c("integer", "character", "character")
+  ),
+  
+  by = "movieId"
+)
+
+# Set a seed for reproducibility
+set.seed(1, sample.kind = "Rounding") # if using R 3.6 or later
+
+# Partition the data. Final hold-out test set will be 10% of MovieLens data
+test_index <- createDataPartition(
+  y     = movielens$rating,
+  times = 1,
+  p     = 0.1,
+  list  = FALSE
+)
+
+# Separate the test set from the edx dataset
+edx <- movielens[-test_index,]
+temp <- movielens[test_index,]
+
+# Make sure userId and movieId in final hold-out test set are also in edx set
+final_holdout_test <- temp %>%
+  semi_join(edx, by = "movieId") %>%
+  semi_join(edx, by = "userId")
+
+# Add rows removed from final hold-out test set back into edx set
+removed <- anti_join(temp, final_holdout_test)
+edx <- rbind(edx, removed)
+
+# Remove unnecessary objects from memory
+rm(dl, ratings, movies, test_index, temp, movielens, removed)
+
 # ==============================================================================
-# 1.2 Transform (a copy of) the data to reveal possible predictors
+# 1.2 Describe and transform the data
 # ==============================================================================
+
+# Describe the data
+# 9,000,055 observations of 6 variables
+str(edx)
 
 # Year of the movie and of the rating, and their distance, might be predictors,
 # so extract them, remove year from titles, & remove no longer needed timestamps
-if(!exists("df")) {
-  df <- edx %>%
+edx <- edx %>%
     mutate(
       year_movie  = as.integer(str_sub(title, start = -5L, end = -2L)),
       year_rating = as.integer(as.POSIXlt(timestamp, origin = "1970-01-01")$year + 1900L),
@@ -141,7 +114,6 @@ if(!exists("df")) {
       title       = str_sub(title, end = -8L),
       timestamp   = NULL
     )
-}
 
 # ==============================================================================
 # 2 Exploratory analysis to identify what might be useful predictors of ratings
@@ -150,10 +122,6 @@ if(!exists("df")) {
 # ==============================================================================
 # 2.1 Initial data exploration
 # ==============================================================================
-
-# Describe the structure of the original dataset
-# 9,000,055 observations of 6 variables
-str(edx)
 
 # Describe the structure of the transformed dataset
 # 9,000,055 observations of 8 variables
