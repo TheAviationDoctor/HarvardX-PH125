@@ -1,0 +1,25 @@
+---
+title:       "CryptoPredictor"
+author:      "Thomas D. Pellegrin"
+date:        "December 2023"
+output:      pdf_document
+fig_caption: yes
+---
+
+```{r, label = "setup", include = FALSE}
+
+# Load the required libraries
+library(caret)
+library(dplyr)
+library(knitr)
+library(readr)
+library(tidyr)
+
+# Set options
+options(timeout = 120)
+
+```
+
+# Abstract
+
+This report presents the methods and results from the second capstone assignment of the HarvardX PH125.9 "Data Science" course available on the online learning platform edX. The assignment used an archival dataset of 
