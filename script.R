@@ -331,7 +331,7 @@ edx_train |>
 # We find that highest-rated movies also have very few ratings each
 edx_train |>
   group_by(movieId, title) |>
-  summarize(mean_rating = mean(rating), n_rating = n()) |>
+  summarize(mean_rating = mean(rating), n_rating = n(), .groups = "keep") |>
   arrange(desc(mean_rating)) |>
   head(10L) |>
   kable(format.args = list(digits = 2))
@@ -340,7 +340,7 @@ edx_train |>
 # This returns a totally different set (zero overlap)
 edx_train |>
   group_by(movieId, title) |>
-  summarize(mean_rating = mean(rating), n_rating = n()) |>
+  summarize(mean_rating = mean(rating), n_rating = n(), .groups = "keep") |>
   arrange(desc(mean_rating)) |>
   filter(n_rating > 30L) |>
   head(10L) |>
@@ -353,7 +353,7 @@ edx_train <- edx_train |>
 # Plot the relationship between rating count and rating score
 edx_train |>
   group_by(movieId) |>
-  summarize(mean_rating = mean(rating), n_rating = n()) |>
+  summarize(mean_rating = mean(rating), n_rating = n(), .groups = "keep") |>
   ggplot(mapping = aes(x = n_rating, y = mean_rating)) +
   geom_point() +
   labs(x = "Count of ratings per movie", y = "Mean rating")
@@ -361,7 +361,7 @@ edx_train |>
 # Ratings by reviewer
 edx_train |>
   group_by(userId) |>
-  summarize(mean_rating = mean(rating), n_rating = n()) |>
+  summarize(mean_rating = mean(rating), n_rating = n(), .groups = "keep") |>
   ggplot(mapping = aes(x = n_rating, y = mean_rating)) +
   geom_point() +
   labs(x = "Count of ratings per user", y = "Mean rating")
@@ -780,7 +780,7 @@ final_holdout_test_datasource <- data_matrix(
 r <- Reco()
 
 # How many CPU threads to use
-nthread <- 20L
+nthread <- 10L
 
 # Set the training parameters
 opts_tune <- list(
@@ -790,16 +790,22 @@ opts_tune <- list(
   nthread  = nthread            # CPU threads
 )
 
+# Set a seed for reproducibility
+suppressWarnings(set.seed(1, sample.kind = "Rounding"))
+
 # Tune the model to the optimal parameters
 opts_train <- r$tune(train_data = edx_train_datasource, opts = opts_tune)
 
 # Display the optimal parameters
 opts_train$min
 
+# Set a seed for reproducibility
+suppressWarnings(set.seed(1, sample.kind = "Rounding"))
+
 # Train the model with tuned parameters
 r$train(
   edx_train_datasource,
-  opts = c(opts_train$min, nthread = 20L, nbin = 30L)
+  opts = c(opts_train$min, nthread = nthread, nbin = 4 * nthread^2 + 1)
 )
 
 # Calculate the final RMSE

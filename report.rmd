@@ -31,7 +31,7 @@ rmses <- list(goal = 0.8649)
 
 # Abstract
 
-This report presents the methods and results from a capstone assignment of the HarvardX PH125.9 "Data Science" course available on the online learning platform edX. The assignment used an archival dataset of user ratings of movies named *Movielens*. The data were first split into training and final holdout sets. Exploratory analysis conducted on the training set revealed strong movie and user effects. Next, a recommendation model from the *recosystem* package of the R statistical computing environment was trained against the training set. The trained model was then used to predict ratings in the final holdout set of users and movies. Lastly, the predicted ratings were compared to the final holdout set's actual ratings. The resulting root mean square error (RMSE) is 0.7778, which is lower than the target RMSE of `r rmses[["goal"]]`.
+This report presents the methods and results from a capstone assignment of the HarvardX PH125.9 "Data Science" course available on the online learning platform edX. The assignment used an archival dataset of user ratings of movies named *Movielens*. The data were first split into training and final holdout sets. Exploratory analysis conducted on the training set revealed strong movie and user effects. Next, manual prediction models were build using the bias from the mean rating observed in each predictor variable and their combinations. Regularization was employed to enhance the user-movie effect model that minimized the RMSE. Then, a recommendation model from the *recosystem* package of the R statistical computing environment was trained. The trained model was then used to predict ratings in the final holdout set of users and movies. Lastly, the predicted ratings were compared to the final holdout set's actual ratings. The resulting root mean square error (RMSE) is 0.7738297, which is lower and thus better than the target RMSE of `r rmses[["goal"]]`.
 
 # Introduction
 
@@ -39,9 +39,9 @@ The final module of the [HarvardX PH125.9 "Data Science" course](https://www.edx
 
 The first assignment's goal is to create a movie recommendation system against the MovieLens dataset, which is comprised of ten million rows observations of movie ratings by users of the online recommendation service [MovieLens](https://movielens.org/) collected between January 1995 and January 2009.
 
-The present report describes the steps followed to conduct this assignment. The **Methods** section describes how the data were downloaded, transformed, and explored. Several hypotheses were formed about the relationship between predictor variables (such as movie and user) and the response variable (the rating). Biases related to each movie, user, genre, year of release, year of rating, and number of ratings per movie were measured as a deviation from the mean rating for each grouping of predictor variable. The respective contributions of those biases to improving a naive prediction of movie ratings from the final test dataset was measured using the root mean square error (RMSE), which is the mean difference between predicted and actual values. The movie and user effects were found to be the strongest determinants of RMSE minimization, along with a the number of ratings per movie.
+The present report describes the steps followed to conduct this assignment. The **Methods** section describes how the data were downloaded, transformed, and explored. Several hypotheses were formed about the relationship between the predictor variables (such as user and movie) and the response variable (the rating). Biases related to each user, movie, genre, year of release, year of rating, and number of ratings per movie were measured as a deviation from the mean rating for each grouping of predictor variable. The respective contributions of those biases to improving a naive prediction of movie ratings from the final test dataset was measured using the root mean square error (RMSE), which is the mean difference between predicted and actual values. The movie and user effects were found to be the strongest determinants of RMSE minimization, along with a the number of ratings per movie.
 
-Following this exploratory analysis, a recommendation model from R's *recosystem* package was tuned and trained on a sparse matrix in triplet form of userId, movieId, and ratings. The trained model was then used to predict ratings for previously-unseen user and movie combinations from the final holdout test set. The model was found to far exceed the performance of the manual predictions accounting for the biases in the predictor variables.
+Following this exploratory analysis, a recommendation model from R's *recosystem* package was tuned and trained on a sparse matrix in triplet form of userId, movieId, and ratings. The trained model was then used to predict ratings for previously-unseen user and movie combinations from the final holdout test set. The model was found to far exceed the performance of the manual predictions accounting for the biases in the predictor variables. The findings are presented and discussed in the *Results* section.
 
 \newpage
 
@@ -182,9 +182,9 @@ edx_train <- edx_train |>
 
 A character representation of all the genres that a movie belongs to, concatenated and delimited by a pipe ("|") character. There are `r edx_train |> select(genres) |> unique() |> separate_rows(genres, sep = "\\|") |> n_distinct()` unique genres in the training set, including one undefined genre. In their concatenated form, however, there are `r length(unique(edx_train$genres))` combinations of genres in the _genres_ variable. Either form might be a predictor of the response variable _rating_.
 
-Figure \ref{fig:figs} shows the distribution of genres in the training set. The drama genre is by far the most represented, followed by comedy, thriller, and romance. The IMAX, film-noir, and Western are the least represented genres.
+The figure below shows the distribution of genres in the training set. The drama genre is by far the most represented, followed by comedy, thriller, and romance. The IMAX, film-noir, and Western are the least represented genres.
 
-```{r figs, label = "histogram_genres", echo = TRUE, results = "show", fig.cap = "\\label{fig:figs} Histogram of genres"}
+```{r figs, label = "histogram_genres", echo = TRUE, results = "show", fig.cap = "\\label{fig:histogram_genres} Histogram of genres"}
 
 edx_train |>
   distinct(title, .keep_all = TRUE) |>
@@ -218,9 +218,9 @@ An integer representation of the unique identifier of a user, ranging from `r mi
 
 A numerical representation of the movie's rating assigned by the user, on a Likert scale in 0.5 increments ranging from `r min(edx_train$rating)` to `r max(edx_train$rating)`. This is the response variable that we must predict given new data (the final holdout test set).
 
-Figure \ref{fig:figs} shows the distribution of ratings in the training set. The most frequent rating (mode) is `r edx_train |> group_by(rating) |> summarize(n = n(), per = label_percent(accuracy = .1)(n / nrow(edx_train))) |> filter(n == max(n)) |> pull(rating)` (`r edx_train |> group_by(rating) |> summarize(n = n(), per = label_percent(accuracy = .1)(n / nrow(edx_train))) |> filter(n == max(n)) |> pull(per)`). The least frequent rating is `r edx_train |> group_by(rating) |> summarize(n = n(), per = label_percent(accuracy = .1)(n / nrow(edx_train))) |> filter(n == min(n)) |> pull(rating)` (`r edx_train |> group_by(rating) |> summarize(n = n(), per = label_percent(accuracy = .1)(n / nrow(edx_train))) |> filter(n == min(n)) |> pull(per)`). The mean of all the ratings is `r round(x = mean(edx_train$rating), digits = 2)`. There is no zero rating.
+The figure below shows the distribution of ratings in the training set. The most frequent rating (mode) is `r edx_train |> group_by(rating) |> summarize(n = n(), per = label_percent(accuracy = .1)(n / nrow(edx_train))) |> filter(n == max(n)) |> pull(rating)` (`r edx_train |> group_by(rating) |> summarize(n = n(), per = label_percent(accuracy = .1)(n / nrow(edx_train))) |> filter(n == max(n)) |> pull(per)`). The least frequent rating is `r edx_train |> group_by(rating) |> summarize(n = n(), per = label_percent(accuracy = .1)(n / nrow(edx_train))) |> filter(n == min(n)) |> pull(rating)` (`r edx_train |> group_by(rating) |> summarize(n = n(), per = label_percent(accuracy = .1)(n / nrow(edx_train))) |> filter(n == min(n)) |> pull(per)`). The mean of all the ratings is `r round(x = mean(edx_train$rating), digits = 2)`. There is no zero rating.
 
-```{r figs, label = "histogram_ratings", echo = TRUE, results = "show", fig.cap = "\\label{fig:figs} Histogram of ratings"}
+```{r figs, label = "histogram_ratings", echo = TRUE, results = "show", fig.cap = "\\label{fig:histogram_ratings} Histogram of ratings"}
 
 # Histogram of ratings
 edx_train |>
@@ -263,9 +263,12 @@ edx_train |>
 
 ```
 
-Figure \ref{fig:figs} shows the number of movies that have received a given number of ratings. It confirms that some movies receive few ratings (left side of the chart) while few movies receive many ratings (right tail).
 
-```{r figs, label = "scatterplot_ratings", echo = TRUE, results = "show", fig.cap = "\\label{fig:figs} Scatterplot of number of ratings per movie"}
+\newpage
+
+The figure below shows the number of movies that have received a given number of ratings. It confirms that some movies receive few ratings (left side of the chart) while few movies receive many ratings (right tail).
+
+```{r figs, label = "scatterplot_ratings", echo = TRUE, results = "show", fig.cap = "\\label{fig:scatterplot_ratings} Scatterplot of number of ratings per movie"}
 
 # Frequency of ratings
 edx_train |>
@@ -285,6 +288,8 @@ edx_train |>
 
 ```
 
+\newpage
+
 The low number of ratings received by some movies decreases the confidence in the reliability of those ratings. To illustrate, the following list of best-rated movies shows that they are obscure releases with very few ratings:
 
 ```{r, label = "best_rated_movies", echo = TRUE, results = "show"}
@@ -293,7 +298,7 @@ The low number of ratings received by some movies decreases the confidence in th
 # We find that highest-rated movies also have very few (1–4) ratings each
 edx_train |>
   group_by(movieId, title) |>
-  summarize(mean_rating = mean(rating), n_rating = n()) |>
+  summarize(mean_rating = mean(rating), n_rating = n(), .groups = "keep") |>
   arrange(desc(mean_rating)) |>
   head(10L) |>
   kable()
@@ -308,13 +313,15 @@ If we remove the bottom 25th percentile of movies by number of ratings, the same
 # This returns a totally different set (zero overlap)
 edx_train |>
   group_by(movieId, title) |>
-  summarize(mean_rating = mean(rating), n_rating = n()) |>
+  summarize(mean_rating = mean(rating), n_rating = n(), .groups = "keep") |>
   arrange(desc(mean_rating)) |>
   filter(n_rating > 30L) |>
   head(10L) |>
   kable()
 
 ```
+
+\newpage
 
 Likewise, the following list of worst-rated movies also shows obscure releases with very few ratings:
 
@@ -324,7 +331,7 @@ Likewise, the following list of worst-rated movies also shows obscure releases w
 # We find that lowest-rated movies also have very few (1–199) ratings each
 edx_train |>
   group_by(movieId, title) |>
-  summarize(mean_rating = mean(rating), n_rating = n()) |>
+  summarize(mean_rating = mean(rating), n_rating = n(), .groups = "keep") |>
   arrange(desc(mean_rating)) |>
   tail(10L) |>
   kable()
@@ -339,7 +346,7 @@ And again, temporarily removing the 25th percentile of least-rated movies return
 # This returns a fairly different set (only three movies overlap)
 edx_train |>
   group_by(movieId, title) |>
-  summarize(mean_rating = mean(rating), n_rating = n()) |>
+  summarize(mean_rating = mean(rating), n_rating = n(), .groups = "keep") |>
   arrange(desc(mean_rating)) |>
   filter(n_rating > 30L) |>
   tail(10L) |>
@@ -351,9 +358,9 @@ edx_train <- edx_train |>
 
 ```
 
-These observations are confirmed by plotting the average rating for every count of movie ratings. Figure \ref{fig:figs} shows that movies with few ratings (those near the vertical axis) have a much wider rating (vertical) spread than those with many ratings, which tend to stabilize around the mode of `r edx_train |> group_by(rating) |> summarize(n = n(), per = label_percent(accuracy = .1)(n / nrow(edx_train))) |> filter(n == max(n)) |> pull(rating)`.
+These observations are confirmed by plotting the average rating for every count of movie ratings. The figure below shows that movies with few ratings (those near the vertical axis) have a much wider rating (vertical) spread than those with many ratings, which tend to stabilize around the mode of `r edx_train |> group_by(rating) |> summarize(n = n(), per = label_percent(accuracy = .1)(n / nrow(edx_train))) |> filter(n == max(n)) |> pull(rating)`.
 
-```{r figs, label = "scatterplot_mean_rating_per_rating_count", echo = TRUE, results = "show", fig.cap = "\\label{fig:figs} Scatterplot of mean rating per rating count"}
+```{r figs, label = "scatterplot_mean_rating_per_rating_count", echo = TRUE, results = "show", fig.cap = "\\label{fig:scatterplot_mean_rating_per_rating_count} Scatterplot of mean rating per rating count"}
 
 # Plot the relationship between rating count and rating score
 edx_train |>
@@ -365,9 +372,9 @@ edx_train |>
 
 ```
 
-Lastly, a similar discrepancy in ratings was observed across users. Figure \ref{fig:figs} plots the mean rating assigned by every user (on the vertical axis) against the number of times those users have given ratings. Many users who contributed very few ratings display a wider (vertical) spread in their ratings, relative to frequent reviewers who tend to assign that are, on average, close to the overall average of `r round(x = mean(edx_train$rating), digits = 2)`.
+Lastly, a similar discrepancy in ratings was observed across users. The figure below plots the mean rating assigned by every user (on the vertical axis) against the number of times those users have given ratings. Many users who contributed very few ratings display a wider (vertical) spread in their ratings, relative to frequent reviewers who tend to assign that are, on average, close to the overall average of `r round(x = mean(edx_train$rating), digits = 2)`.
 
-```{r figs, label = "scatterplot_mean_rating_per_user", echo = TRUE, results = "show", fig.cap = "\\label{fig:figs} Scatterplot of mean rating per user"}
+```{r figs, label = "scatterplot_mean_rating_per_user", echo = TRUE, results = "show", fig.cap = "\\label{fig:scatterplot_mean_rating_per_user} Scatterplot of mean rating per user"}
 
 # Ratings by reviewer
 edx_train |>
@@ -378,6 +385,8 @@ edx_train |>
   labs(x = "Count of ratings per user", y = "Mean rating")
 
 ```
+
+\newpage
 
 In conclusion for the exploratory analysis of the ratings, we can state that an ideal prediction model will need to account for:
 
@@ -431,6 +440,8 @@ rmses <- c(
 
 The resulting RMSE of `r rmses[["naive"]]` forms the starting point from which we must improve the predictive power of the model.
 
+\newpage
+
 #### User effect model
 
 Next, a model accounting for the bias in individual user ratings was created:
@@ -460,6 +471,8 @@ rmses <- c(
 ```
 
 The resulting RMSE of `r rmses[["user"]]` is a stark improvement over the naive baseline.
+
+\newpage
 
 #### Movie effect model
 
@@ -491,6 +504,8 @@ rmses <- c(
 
 The resulting RMSE of `r rmses[["movie"]]` is a further improvement toward minimizing the RMSE, but still above the goal.
 
+\newpage
+
 #### Multi-genre effect model
 
 The next step was to create a similar model to account for a bias in individual cinematographic genres. The single, concatenated string of genres assigned to each movie in the original training dataset was used for this purpose.
@@ -520,6 +535,8 @@ rmses <- c(
 ```
 
 The resulting RMSE of `r rmses[["multi_genre"]]` is worse, which indicates that concatenated _genres_ may not be a useful predictor for our model.
+
+\newpage
 
 #### Single genre effect model
 
@@ -563,6 +580,8 @@ rmses <- c(
 
 The resulting RMSE of `r rmses[["single_genre"]]` is still better than the naive model, but worse than that of treating concatenated genres as one.
 
+\newpage
+
 #### Year of release effect model
 
 Next, a possible rating bias related to the year of movie release was tested.
@@ -601,6 +620,8 @@ rmses <- c(
 
 The resulting RMSE of `r rmses[["year_movie"]]` is also marginally better than the naive prediction, but not an improvement over the _movieId_ and _userId_ effect models.
 
+\newpage
+
 #### Year of rating effect model
 
 Lastly, a similar model was created based on the year of the rating.
@@ -638,6 +659,8 @@ rmses <- c(
 
 The resulting RMSE of `r rmses[["year_rating"]]` is the worst of all the manual, single-predictor models so far.
 
+\newpage
+
 #### Combined movie, user, multi-genre, year of release, and year of rating effects model
 
 Can a model combining all these individual predictors perform better? To answer this question, a combined model was created using the following code:
@@ -668,6 +691,8 @@ rmses <- c(
 
 The resulting RMSE of `r rmses[["movieusergenreyear"]]` is back under unity, but still worse than the best-performing model so far, which accounts only for the movie effect.
 
+\newpage
+
 #### Combined movie, user, and multi-genre effects model
 
 Next, the _year_movie_ and _year_rating_ predictors were removed to test a simpler combined model:
@@ -693,6 +718,8 @@ rmses <- c(
 ```
 
 The resulting RMSE of `r rmses[["movieusergenre"]]` is further improved and almost on par with the simple movie effect model.
+
+\newpage
 
 #### Combined movie and user effects model
 
@@ -747,6 +774,8 @@ user_bias_reg <- edx_train |>
 
 ```
 
+\newpage
+
 With those data assembled, we can run an optimizer function that computes the RMSE from different values of lambda.
 
 ```{r, label = "movie_user_reg_opt", echo = TRUE, results = "hide"}
@@ -779,6 +808,8 @@ rmses[["movieuser_reg"]] <- opt$objective
 
 The resulting minimized RMSE of `r rmses[["movieuser_reg"]]` with a lambda of `r format(x = opt$minimum, digits = 2)` is an improvement over the earlier non-regularized RMSE of `r rmses[["movieuser"]]`, but it is still slightly above the goal of `r rmses[["goal"]]`. We need to factorize the movie-user ratings matrix to uncover the latent factors of the model.
 
+\newpage
+
 ### Recosys model
 
 _recosystem_ is a recommender system (available as an R package) based on the _LIBMF_ open-source matrix factorization library. It takes a sparse matrix of users (in rows), items (in columns), and ratings (in cells), and predicts missing rating values in blank cells based on user and item biases. The package starts by training the model against the dataset, then tunes the parameters to minimize the RMSE, then exports the model, and finally predicts rating values against an independent, never-seen-before testing dataset.
@@ -809,6 +840,8 @@ final_holdout_test_datasource <- data_matrix(
 
 ```
 
+\newpage
+
 Next, a _recosystem_ object was instantiated with training parameters that include 50 latent factors, a 10-fold cross-validation, and the use of multiple CPU threads to speed up runtime.
 
 ```{r, label = "reco_setup", echo = TRUE, results = "hide"}
@@ -817,11 +850,12 @@ Next, a _recosystem_ object was instantiated with training parameters that inclu
 r <- Reco()
 
 # How many CPU threads to use
-nthread <- 20L
+nthread <- 10L
 
 # Set the training parameters
 opts_tune <- list(
-  dim      = 200L,              # Latent factors
+  # dim      = 200L,              # Latent factors
+  dim      = 5,              # Latent factors
   nbin     = 4 * nthread^2 + 1, # Number of bins
   nfold    = 10L,               # k-fold cross-validation
   nthread  = nthread            # CPU threads
@@ -848,7 +882,7 @@ Next, the model was trained against the _edx_training_ data source using those t
 # Train the model with tuned parameters
 r$train(
   edx_train_datasource,
-  opts = c(opts_train$min, nthread = 20L, nbin = 30L)
+  opts = c(opts_train$min, nthread = nthread, nbin = 4 * nthread^2 + 1)
 )
 
 ```
@@ -868,6 +902,8 @@ rmses <- c(
 ```
 
 The resulting RMSE of `r rmses[["recosys"]]` outperforms the earlier user-movie effect model thanks to the added matrix factorization. It is also significantly lower than the target RMSE of `r rmses[["goal"]]`.
+
+\newpage
 
 # Results
 
