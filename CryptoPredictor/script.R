@@ -2,10 +2,11 @@
 #    NAME: script.R
 #   INPUT: Ethereum historical prices
 # ACTIONS: 1 Prepare the data
-#          2 Explore the data
-#          3 Create prediction model
+#          2 Partition the data
+#          3 Build the models
+#          4 Create the predictions
 #  OUTPUT: A predictive model of Ethereum prices
-# RUNTIME: ~1 hour
+# RUNTIME: ~15 minutes
 #  AUTHOR: Thomas D. Pellegrin <thomas@pellegr.in>
 #    YEAR: 2023
 # ==============================================================================
@@ -17,7 +18,7 @@
 # Clear the environment
 rm(list = ls())
 
-# # Load the required libraries
+# Load the required libraries
 library(caret)
 library(dplyr)
 library(gbm)
@@ -29,9 +30,6 @@ library(TTR)
 # Start a script timer
 start_time <- Sys.time()
 
-# Create a list to hold the resulting RMSEs
-rmses <- list()
-
 # Clear the console
 cat("\014")
 
@@ -42,7 +40,7 @@ cat("\014")
 # Load the data
 # Downloaded from https://coinmarketcap.com/currencies/ethereum/historical-data/
 eth <- read_delim(
-    file       = "eth.csv",
+    file       = "CryptoPredictor/eth.csv",
     delim      = ";",
     col_types  = c("TTTTnnnnnnT"),
     col_select = c(1, 8:9)
@@ -143,15 +141,33 @@ win <- res |>
   as.data.frame() |>
   t() |>
   as.data.frame() |>
-  filter(RMSE == min(RMSE)) |>
-  rownames()
+  filter(RMSE == min(RMSE))
+
+# Print name
+print(rownames(win))
 
 # Plot the results
-ggplot() +
-  geom_line( data = eth_train, aes(x = index, y = price),    color = "gray") +
-  geom_point(data = eth_test,  aes(x = index, y = price),    color = "red",  alpha = .25) +
-  geom_point(data = eth_pred,  aes(x = index, y = get(win)), color = "blue", alpha = .25) +
+p <- ggplot() +
+  geom_line( data = eth_train, aes(x = index, y = price),              color = "gray") +
+  geom_point(data = eth_test,  aes(x = index, y = price),              color = "red",  alpha = .25) +
+  geom_point(data = eth_pred,  aes(x = index, y = get(rownames(win))), color = "blue", alpha = .25) +
   labs(x = "Time", y = "Price in USD")
+
+# View plot
+p
+
+# Save plot
+ggsave(
+  filename = paste("plot.png"),
+  path     = "CryptoPredictor/",
+  plot     = p,
+  device   = "png",
+  scale    = 1L,
+  height   = 10.4,
+  width    = 18,
+  units    = "in",
+  dpi      = "retina"
+)
 
 # ==============================================================================
 # 5 Housekeeping

@@ -52,7 +52,7 @@ cat("\014")
 # ==============================================================================
 
 # Define the data source
-dl  <- "ml-10M100K.zip"
+dl  <- "MovieLens/ml-10M100K.zip"
 url <- "https://files.grouplens.org/datasets/movielens/ml-10m.zip"
 
 # Download the data only if not already downloaded
